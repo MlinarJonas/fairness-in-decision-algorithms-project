@@ -5,8 +5,7 @@ Contains functions for searching optimal parameters for logistic regression mode
 """
 import numpy as np
 from utils import sigmoid, f1_score, build_k_indices
-from models import reg_logistic_regression_weighted, logistic_regression_weighted, train_weighted_three_layer_nn, predict_three_layer_nn, ensemble_predictions
-from implementations import logistic_regression
+from models import reg_logistic_regression_weighted
 
 def cross_validation_tuning(y, X, k_indices, gammas, pos_weight_scales, model_func,
                             lambdas=None, max_iters=2000):
