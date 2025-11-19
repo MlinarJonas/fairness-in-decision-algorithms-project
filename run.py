@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # from cleaning import clean_data
 # from preprocessing import preprocess_data
-from models import reg_logistic_regression_weighted
+from logistic_regression import reg_logistic_regression_weighted
 from training import train_reg_logistic_regression_weighted
 from CV_models import cross_validate_model, reg_weighted_lr_model
 

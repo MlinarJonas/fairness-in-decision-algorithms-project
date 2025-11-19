@@ -1,7 +1,7 @@
 import numpy as np
 from utils import build_k_indices, sigmoid, scores
 from training import train_reg_logistic_regression_weighted
-from models import reg_logistic_regression_weighted
+from logistic_regression import reg_logistic_regression_weighted
 
 def cross_validate_model(y, X, model_func, k_fold=5, seed=42):
     """

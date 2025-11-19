@@ -1,6 +1,6 @@
 import numpy as np
 from utils import sigmoid
-from models import reg_logistic_regression_weighted
+from logistic_regression import reg_logistic_regression_weighted
 
 def train_reg_logistic_regression_weighted(x_train, y_train, lambda_=1e-6, gamma=0.5, max_iters=2000):
     """
