@@ -45,7 +45,7 @@ df['lsat'] = (df['lsat'] - df['lsat'].mean()) / df['lsat'].std()
 df = df[features]
 
 # function to return processed data
-def return_data():
+def get_data():
     return df
 
 # function to print first n rows of dataset
