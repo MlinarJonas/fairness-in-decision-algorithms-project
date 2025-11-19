@@ -5,7 +5,6 @@ from tabulate import tabulate
 
 # Download latest version
 path = kagglehub.dataset_download("danofer/law-school-admissions-bar-passage")
-print("Path to dataset files:", path)
 
 # Load the dataset
 data_file = path + "/" + "bar_pass_prediction.csv"
@@ -13,10 +12,6 @@ df = pd.read_csv(data_file, sep=",")
 pd.set_option('display.width', 200)
 pd.set_option('display.max_columns', None)
 print("Dataset loaded successfully.")
-
-# print dataset info before preprocessing
-print(df.info())
-print(df.describe(include='all'))
 
 # shuffle dataset rows
 df = df.sample(frac=1, random_state=42).reset_index(drop=True)
@@ -49,17 +44,21 @@ df['lsat'] = (df['lsat'] - df['lsat'].mean()) / df['lsat'].std()
 # remove features that won't be used
 df = df[features]
 
-# print dataset info after preprocessing
-print(df.info())
-print(df.describe(include='all'))
-print(tabulate(df.head(), headers='keys', tablefmt='psql'))
-
 # function to return processed data
 def return_data():
     return df
 
+# function to print first n rows of dataset
+def print_data():
+    print(tabulate(df.head(), headers='keys', tablefmt='psql'))
 
+# function to print dataset statistics
+def print_stats():
+    print(df.info())
+    print(df.describe(include='all'))
 
-
+# function to print dataset path
+def print_path():
+    print("Dataset path:", path)
 
 
