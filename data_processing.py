@@ -54,6 +54,7 @@ print(df.info())
 print(df.describe(include='all'))
 print(tabulate(df.head(), headers='keys', tablefmt='psql'))
 
+# function to return processed data
 def return_data():
     return df
 
