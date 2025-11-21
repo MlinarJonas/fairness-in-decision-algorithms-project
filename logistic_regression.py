@@ -9,7 +9,7 @@ class LogisticRegression:
         self.loss = None
         self.w = None
 
-    def fit(self, y, tx):
+    def fit(self, tx, y):
         self.w, self.loss = reg_logistic_regression_weighted(
             y=y,
             tx=tx,
@@ -25,7 +25,7 @@ class LogisticRegression:
         proba = self.predict_proba(tx)
         return (proba >= threshold).astype(int)
 
-def reg_logistic_regression_weighted(y, tx, lambda_, max_iters, gamma, pos_weight_scale=1.0):
+def reg_logistic_regression_weighted(tx, y, lambda_, max_iters, gamma, pos_weight_scale=1.0):
 
     # Initialize weights
    

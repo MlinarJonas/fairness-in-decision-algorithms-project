@@ -1,63 +1,51 @@
 import numpy as np
 
 def sigmoid(z):
-    """Compute the sigmoid function"""
     return 1 / (1 + np.exp(-z))
-
-def f1_score(y_true, y_pred):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
-    
-    TP = np.sum((y_true == 1) & (y_pred == 1))
-    FP = np.sum((y_true == 0) & (y_pred == 1))
-    FN = np.sum((y_true == 1) & (y_pred == 0))
-    
-    if TP + FP == 0 or TP + FN == 0:
-        return 0.0  # avoid division by zero
-    
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
-    
-    if precision + recall == 0:
-        return 0.0
-    
-    f1 = 2 * (precision * recall) / (precision + recall)
-    return f1
 
 def scores(y_pred, y_true):
     """
-    Compute evaluation metrics: false positive, true positive, accuracy, precision, recall, and F1-score.
-    
+    Compute classification metrics from predicted and true binary labels.
+
     Parameters
     ----------
-    y_pred : np.ndarray
+    y_pred : array-like
         Predicted binary labels (0 or 1).
-    y_true : np.ndarray
+    y_true : array-like
         True binary labels (0 or 1).
-        
+
     Returns
     -------
-    false positive : float
-    true positive : float
     accuracy : float
+        (TP + TN) / total samples
     precision : float
+        TP / (TP + FP)
     recall : float
+        TP / (TP + FN)
+    fpr : float
+        FP / (FP + TN), false positive rate
     f1 : float
+        Harmonic mean of precision and recall
     """
+    
+    # Flatten arrays
     y_pred = y_pred.flatten()
     y_true = y_true.flatten()
     
+    # Calculate TP, TN, FP, FN
     tp = np.sum((y_pred == 1) & (y_true == 1))
     tn = np.sum((y_pred == 0) & (y_true == 0))
     fp = np.sum((y_pred == 1) & (y_true == 0))
     fn = np.sum((y_pred == 0) & (y_true == 1))
 
-    accuracy = (tp + tn) / (tp + tn + fp + fn + 1e-10)
-    precision = tp / (tp + fp + 1e-10)
-    recall = tp / (tp + fn + 1e-10)
-    f1 = 2 * precision * recall / (precision + recall + 1e-10)
+    # Calculate metrics
+    accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-    return fp, tp, accuracy, precision, recall, f1
+    return accuracy, precision, recall, fpr, f1
 
 def build_k_indices(y, k_fold, seed):
     np.random.seed(seed)
