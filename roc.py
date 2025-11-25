@@ -37,7 +37,6 @@ for threshold in thresholds:
 
     # Predict on validation set
     y_pred_val = model.predict(X_val, threshold=threshold)
-    print(y_pred_val)
 
     # ---- MEN ----
     mask_men = (gender_val == 0)
