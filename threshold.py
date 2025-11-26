@@ -1,67 +1,138 @@
+import itertools
 import numpy as np
 
-def find_threshold_on_single_roc(fprs, tprs, thresholds, gamma, tol=1e-8):
+# ---------------------------
+#  Barycentric for 2 points
+# ---------------------------
+
+def barycentric_segment(g, p1, p2, tol=1e-12):
+
     """
-    Given a single ROC curve (fprs, tprs, thresholds) and a target point gamma,
-    return a threshold representation:
-       - deterministic: T
-       - randomized: { 'T_a': T_a, 'T_b': T_b, 'p': alpha }
-    The pair of points used for the randomized version is chosen as the one whose
-    segment contains gamma AND whose midpoint is closest (Euclidean distance) to gamma.
+    Function that verifies whether the point g lies 
+    on the segement between the points p1 and p2 and 
+    returns the coefficients alpha and beta such that
+    g = alpha*p1 + beta*p2 if it is the case.
     """
-    fprs = np.asarray(fprs, float)
-    tprs = np.asarray(tprs, float)
-    thresholds = np.asarray(thresholds, float)
-    gamma = np.asarray(gamma, float)
+    g = np.asarray(g) 
+    p1 = np.asarray(p1)
+    p2 = np.asarray(p2)
 
-    # --- STEP 1: Try deterministic match (i.e., gamma exactly equal to some ROC point) ---
-    for i, (x, y) in enumerate(zip(fprs, tprs)):
-        if np.allclose([x, y], gamma, atol=tol, rtol=0):
-            return float(thresholds[i])  # deterministic threshold
+    v = p2 - p1 # v is the vector from p1 to p2
+    denom = np.dot(v, v) # norm of v
+    if denom < tol:
+        return None  # identical points
 
-    # --- STEP 2: Search pairs whose segment contains gamma ---
-    candidates = []   # will store (distance_to_gamma, i, j, alpha)
+    # Solve g = (1 - alpha)*p1 + alpha*p2 
+    alpha = np.dot(g - p1, v) / denom 
+    beta = 1 - alpha
 
-    for i in range(len(fprs)):
-        for j in range(i+1, len(fprs)):
-            a = np.array([fprs[i], tprs[i]], float)
-            b = np.array([fprs[j], tprs[j]], float)
+    if alpha >= -tol and beta >= -tol: # ensures alpha, beta >=0
+        g_hat = alpha*p2 + beta*p1
+        if np.linalg.norm(g_hat - g) <= tol:
+            return np.array([beta, alpha])  # weights for [p1, p2]
+    return None
 
-            # Solve for alpha in gamma = (1-alpha)*a + alpha*b
-            ab = b - a
-            denom = ab[0] if abs(ab[0]) > tol else ab[1]
-            if abs(denom) < tol:
-                continue
 
-            if abs(ab[0]) > tol:
-                alpha = (gamma[0] - a[0]) / ab[0]
-            else:
-                alpha = (gamma[1] - a[1]) / ab[1]
+# ---------------------------
+#  Barycentric for 3 points
+# ---------------------------
 
-            # Check alpha in [0,1] and that the reconstructed point equals gamma
-            if 0 - tol <= alpha <= 1 + tol:
-                recon = (1 - alpha) * a + alpha * b
-                if np.linalg.norm(recon - gamma) < 1e-6:
-                    midpoint = 0.5 * (a + b)
-                    dist = np.linalg.norm(midpoint - gamma)
-                    candidates.append((dist, i, j, float(alpha)))
+def barycentric_triangle(g, p1, p2, p3, tol=1e-12):
 
-    # --- STEP 3: Choose the closest-valid pair ---
-    if len(candidates) == 0:
-        raise ValueError("Gamma does not lie on any segment of this ROC curve.")
+    """
+    Function that verifies whether the point g lies 
+    in the triangle made by the points p1, p2 and p3 
+    and returns the coefficients u,v,w such that
+    g = u*p1 + v*p2 + w*p3 if it is the case.
+    """
 
-    candidates.sort(key=lambda x: x[0])
-    _, i, j, alpha = candidates[0]
+    g = np.asarray(g)
+    p1 = np.asarray(p1)
+    p2 = np.asarray(p2)
+    p3 = np.asarray(p3)
 
-    # --- STEP 4: Build randomized threshold ---
-    # If alpha is 0 or 1 exactly -> deterministic, but this rarely happens.
-    if alpha <= tol:
-        return float(thresholds[i])
-    if alpha >= 1 - tol:
-        return float(thresholds[j])
+    A = np.column_stack([p1 - p3, p2 - p3])
+    b = g - p3
 
-    return {
-        'T_a': float(thresholds[i]),
-        'T_b': float(thresholds[j]),
-        'p': float(alpha)
-    }
+    try:
+        uv = np.linalg.solve(A, b) # solves A*[u,v] = b
+    except np.linalg.LinAlgError:
+        return None
+
+    u, v = uv
+    w = 1 - u - v # ensures u + v+ w = 1
+
+    if u >= -tol and v >= -tol and w >= -tol: # ensures u,v,w >= 0
+        g_hat = u*p1 + v*p2 + w*p3
+        if np.linalg.norm(g_hat - g) <= tol:
+            return np.array([u, v, w])
+    return None
+
+
+
+
+
+def find_threshold_on_single_roc(fprs, tprs, thresholds, gamma, tol=1e-12, max_combinations=50000):
+    """
+    Finds thresholds corresponding to a convex combination of 1, 2, or 3 ROC points
+    that exactly equals gamma (within tol), and returns the combination that
+    minimizes the sum of distances between gamma and the points in the combination.
+
+    Returns:
+        selected_thresholds
+        alpha (convex weights)
+        gamma_hat
+        subset_indices
+    """
+
+    N = len(fprs)
+    points = np.column_stack((fprs, tprs))
+    gamma = np.asarray(gamma)
+
+    # compute distances
+    distances = np.linalg.norm(points - gamma, axis=1)
+    sorted_indices = np.argsort(distances)
+
+    best_score = np.inf
+    best_combination = None
+
+    # 1-point combinations
+    for i in sorted_indices:
+        if np.linalg.norm(points[i] - gamma) <= tol:
+            score = distances[i]
+            if score < best_score:
+                best_score = score
+                best_combination = (np.array([thresholds[i]]), np.array([1.0]), gamma.copy(), (i,))
+
+    # 2-point combinations
+    count = 0
+    for i, j in itertools.combinations(sorted_indices, 2):
+        alpha = barycentric_segment(gamma, points[i], points[j], tol)
+        if alpha is not None:
+            score = distances[i] + distances[j]
+            if score < best_score:
+                best_score = score
+                best_combination = (np.array([thresholds[i], thresholds[j]]),
+                                    alpha, gamma.copy(), (i, j))
+        count += 1
+        if count >= max_combinations:
+            break
+
+    # 3-point combinations
+    count = 0
+    for i, j, k in itertools.combinations(sorted_indices, 3):
+        alpha = barycentric_triangle(gamma, points[i], points[j], points[k], tol)
+        if alpha is not None:
+            score = distances[i] + distances[j] + distances[k]
+            if score < best_score:
+                best_score = score
+                best_combination = (np.array([thresholds[i], thresholds[j], thresholds[k]]),
+                                    alpha, gamma.copy(), (i, j, k))
+        count += 1
+        if count >= max_combinations:
+            break
+
+    if best_combination is not None:
+        return best_combination
+
+    raise ValueError("No exact convex combination of 1, 2, or 3 ROC points matches gamma.")
