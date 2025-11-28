@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from logistic_regression import reg_logistic_regression_weighted
 from training import train_reg_logistic_regression_weighted
 from CV_models import cross_validate_model, reg_weighted_lr_model
-from optimize_gamma import solve_gamma_from_roc_points, get_roc_points
 
 
 def main():
@@ -28,15 +27,11 @@ def main():
 
     # Train best model (weighted L2-regularized logistic regression)
     
-    #w, loss = train_reg_logistic_regression_weighted(
-    #    x_train_final, y_train_bin, lambda_=1e-6, gamma=0.5, max_iters=2000
-    #)
-    #print("Training finished")
+    w, loss = train_reg_logistic_regression_weighted(
+        x_train_final, y_train_bin, lambda_=1e-6, gamma=0.5, max_iters=2000
+    )
+    print("Training finished")
     
-    # optimize gamma
-    fpr_groups, tpr_groups=get_roc_points()
-    gamma, lambdas = solve_gamma_from_roc_points(fpr_groups, tpr_groups)
-    print("Gamma", gamma, "lambdas", lambdas)
     # Generate submission
     #y_test_competition = make_submission_LR(
     #    w, x_test_final, test_ids, filename="submission_final.csv"

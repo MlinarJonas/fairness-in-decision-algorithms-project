@@ -5,78 +5,88 @@ from data_split import train_val_test_split
 from logistic_regression import LogisticRegression
 from utils import scores
 
-# Load and preprocess data
-df = get_data()
+def prepare_data():
 
-# Split data into train, validation, and test sets
-train, val, test = train_val_test_split(df)
+    # get data
+    df = get_data()
 
-# Prepare training data
-X_train = train.drop(columns=['pass_bar']).to_numpy()
-y_train = train['pass_bar'].to_numpy()
+    # Split data
+    train, val, test = train_val_test_split(df)
 
-X_val = val.drop(columns=['pass_bar']).to_numpy()
-y_val = val['pass_bar'].to_numpy()
+    # Prepare training sets
+    X_train = train.drop(columns=['pass_bar']).to_numpy()
+    y_train = train['pass_bar'].to_numpy()
 
-# We'll keep the gender column from val to split ROC curves
-gender_val = val['gender'].to_numpy() 
+    # Prepare validation sets
+    X_val = val.drop(columns=['pass_bar']).to_numpy()
+    y_val = val['pass_bar'].to_numpy()
+    gender_val = val['gender'].to_numpy()
 
-# thresholds for ROC curve
-thresholds = np.linspace(0, 1, 1000)
+    return (X_train, y_train), (X_val, y_val, gender_val), test
 
-# Train logistic regression model
-model = LogisticRegression() 
-model.fit(X_train, y_train)
+def train_logistic(X_train, y_train):
+    # Create and train logistic regression model
+    model = LogisticRegression()
+    model.fit(X_train, y_train)
+    return model
 
-# Prepare lists for ROC for men and women
-tprs_men, fprs_men = [], []
-tprs_women, fprs_women = [], []
+def roc_by_group(y_true, y_score, group, thresholds):
 
+    # Initialize dictionaries to hold FPR and TPR for each group
+    unique_groups = np.unique(group)
+    fpr_dict = {g: [] for g in unique_groups}
+    tpr_dict = {g: [] for g in unique_groups}
 
-for threshold in thresholds:
+    for thr in thresholds:
 
-    # Predict on validation set
-    y_pred_val = model.predict(X_val, threshold=threshold)
+        # Predict labels based on threshold
+        y_pred = (y_score >= thr).astype(int)
 
-    # ---- MEN ----
-    mask_men = (gender_val == 0)
-    y_true_men = y_val[mask_men]
-    y_pred_men = y_pred_val[mask_men]
+        # Calculate FPR and TPR for each group
+        for g in unique_groups:
+            mask = (group == g)
+            y_true_g = y_true[mask]
+            y_pred_g = y_pred[mask]
 
-    # Calculate Recall (TPR) and FPR for men
-    _,_,recall_men,fpr_men,_ = scores(y_pred_men,y_true_men)
+            # Calculate scores
+            _, _, recall_g, fpr_g, _ = scores(y_pred_g, y_true_g)
+            tpr_dict[g].append(recall_g)
+            fpr_dict[g].append(fpr_g)
+
+    return fpr_dict, tpr_dict
+
+def get_roc_points(threshold_limit=1000):
+
+    # Prepare data
+    (X_train, y_train), (X_val, y_val, gender_val), _ = prepare_data()
     
-    tprs_men.append(recall_men)
-    fprs_men.append(fpr_men)
+    # Train model
+    model = train_logistic(X_train, y_train)
 
-    # ---- WOMEN ----
-    mask_women = (gender_val == 1)
-    y_true_women = y_val[mask_women]
-    y_pred_women = y_pred_val[mask_women]
+    # get scores once
+    y_score_val = model.predict_proba(X_val)
 
-    # Calculate Recall (TPR) and FPR for women
-    _,_,recall_women,fpr_women,_ = scores(y_pred_women,y_true_women)
+    # Define thresholds
+    thresholds = np.linspace(0, 1, threshold_limit)
 
-    tprs_women.append(recall_women)
-    fprs_women.append(fpr_women)
+    # Get ROC points by group
+    fpr_dict, tpr_dict = roc_by_group(
+        y_true=y_val,
+        y_score=y_score_val,
+        group=gender_val,
+        thresholds=thresholds,
+    )
+
+    # Convert to list format
+    fpr_groups = [fpr_dict[0], fpr_dict[1]]
+    tpr_groups = [tpr_dict[0], tpr_dict[1]]
+
+    return fpr_groups, tpr_groups
+
+# Obtain ROC points
+roc_points_gender = get_roc_points()
 
 
-# Convert to numpy arrays
-tprs_men = np.array(tprs_men)
-fprs_men = np.array(fprs_men)
-tprs_women = np.array(tprs_women)
-fprs_women = np.array(fprs_women)
-
-# Plot ROC curves
-plt.figure()
-plt.plot(fprs_men, tprs_men, label='Men ROC')
-plt.plot(fprs_women, tprs_women, label='Women ROC')
-plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('ROC Curve by Gender')
-plt.legend()
-plt.show()
 
 
 
