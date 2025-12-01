@@ -7,6 +7,7 @@ from training import train_reg_logistic_regression_weighted
 from CV_models import cross_validate_model, reg_weighted_lr_model
 from optimize_gamma import solve_gamma_from_roc_points, get_roc_points
 from threshold import find_threshold_on_single_roc
+from race_blind import get_roc_points_one_curve, find_optimal_gamma
 
 
 def main():
@@ -110,6 +111,33 @@ def main():
     plt.title("ROC Curve by Gender with Gamma and Convex Combination Points")
     plt.legend()
     plt.show()
+
+    fpr_general, tpr_general=get_roc_points_one_curve()
+    gamma_blind, score, index = find_optimal_gamma(list(zip(fpr_general, tpr_general)), 1)
+    T_blind = thresholds[index]
+    print("Race blind threshold", T_blind)
+   
+
+
+    gamma_fpr = gamma_blind[0]
+    gamma_tpr = 1 - gamma_blind[1]   # convert FNR → TPR
+
+    plt.figure(figsize=(7,7))
+
+    # ROC curve
+    plt.plot(fpr_general, tpr_general, label="ROC curve", linewidth=2)
+
+    # optimal point
+    plt.scatter([gamma_fpr], [gamma_tpr], s=80, color='red', label="Optimal γ")
+
+    plt.xlabel("False Positive Rate (FPR)")
+    plt.ylabel("True Positive Rate (TPR)")
+    plt.title("ROC Curve with Optimal γ Point")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 
 
 
