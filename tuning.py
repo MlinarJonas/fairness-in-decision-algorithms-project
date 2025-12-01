@@ -76,32 +76,4 @@ def cross_validation_tuning(y, X, k_indices, gammas, pos_weight_scales, model_fu
     print("\nBest parameters:", best_params, f"→ F1={best_f1:.4f}")
     return best_params, best_f1
 
-def example_tuning_pipeline():
-    """
-    Example showing how hyperparameter tuning would be run on cleaned & preprocessed data.
-    This function is not called in run.py but demonstrates how the tuning was done.
-    """
-    # Example pseudo-code 
-    print(">>> Example hyperparameter tuning pipeline (not called in main):")
 
-    # Load preprocessed data (as if)
-    # x_train_final, y_train_bin = ...
-
-    # Example: generate folds
-    # k_indices = build_k_indices(y_train_bin, k_fold=5, seed=42)
-
-    # Example grid
-    # lambdas = [1e-6, 1e-5, 1e-4]
-    # gammas = [0.1, 0.5, 1.0]
-    # pos_weight_scales = [1.0, 2.0, 5.0]
-
-    # Run tuning for regularized model
-    # best_params, best_f1 = cross_validation_tuning(
-    #     y_train_bin, x_train_final, k_indices,
-    #     gammas, pos_weight_scales,
-    #     model_func=reg_logistic_regression_weighted,
-    #     lambdas=lambdas
-    # )
-
-    # print("Best regularized logistic regression parameters:", best_params)
-    pass

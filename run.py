@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 # from cleaning import clean_data
 # from preprocessing import preprocess_data
 from logistic_regression import reg_logistic_regression_weighted
-from training import train_reg_logistic_regression_weighted
+from train import train_reg_logistic_regression_weighted
 from CV_models import cross_validate_model, reg_weighted_lr_model
 from optimize_gamma import solve_gamma_from_roc_points, get_roc_points
 from threshold import find_threshold_on_single_roc

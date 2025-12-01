@@ -61,4 +61,24 @@ def print_stats():
 def print_path():
     print("Dataset path:", path)
 
+def prepare_data():
+
+    # get data
+    df = get_data()
+
+    # Split data
+    train, val, test = train_val_test_split(df)
+
+    # Prepare training sets
+    X_train = train.drop(columns=['pass_bar']).to_numpy()
+    y_train = train['pass_bar'].to_numpy()
+
+    # Prepare validation sets
+    X_val = val.drop(columns=['pass_bar']).to_numpy()
+    y_val = val['pass_bar'].to_numpy()
+    gender_val = val['gender'].to_numpy()
+
+    return (X_train, y_train), (X_val, y_val, gender_val), test
+
+
 
