@@ -4,8 +4,8 @@ Contains functions for searching optimal parameters for logistic regression mode
 (regularized or not) based on F1-score.
 """
 import numpy as np
-from utils import sigmoid, f1_score, build_k_indices
-from logistic_regression import reg_logistic_regression_weighted
+from utils.utils import sigmoid, f1_score, build_k_indices
+from models.logistic_regression import reg_logistic_regression_weighted
 
 def cross_validation_tuning(y, X, k_indices, gammas, pos_weight_scales, model_func,
                             lambdas=None, max_iters=2000):

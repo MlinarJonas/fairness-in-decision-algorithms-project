@@ -1,5 +1,5 @@
 import numpy as np
-from utils import sigmoid
+from utils.utils import sigmoid
 
 class LogisticRegression:
     def __init__(self, lambda_=1e-6, max_iters=2000, gamma=0.5):
@@ -9,27 +9,27 @@ class LogisticRegression:
         self.loss = None
         self.w = None
 
-    def fit(self, tx, y):
+    def fit(self, X, y):
         self.w, self.loss = reg_logistic_regression_weighted(
             y=y,
-            tx=tx,
+            X=X,
             lambda_=self.lambda_,
             max_iters=self.max_iters,
             gamma=self.gamma
         )
 
-    def predict_proba(self, tx):
-        return sigmoid(tx @ self.w)
+    def predict_proba(self, X):
+        return sigmoid(X @ self.w)
 
-    def predict(self, tx, threshold=0.5):
-        proba = self.predict_proba(tx)
+    def predict(self, X, threshold=0.5):
+        proba = self.predict_proba(X)
         return (proba >= threshold).astype(int)
 
-def reg_logistic_regression_weighted(tx, y, lambda_, max_iters, gamma, pos_weight_scale=1.0):
+def reg_logistic_regression_weighted(X, y, lambda_, max_iters, gamma, pos_weight_scale=1.0):
 
     # Initialize weights
    
-    w = np.zeros(tx.shape[1])
+    w = np.zeros(X.shape[1])
     
     # Compute class weights inversely proportional to class frequency
     n_pos = np.sum(y == 1)
@@ -41,14 +41,14 @@ def reg_logistic_regression_weighted(tx, y, lambda_, max_iters, gamma, pos_weigh
 
     # Gradient descent
     for i in range(max_iters):
-        pred = sigmoid(tx @ w)
-        grad = tx.T @ (weights * (pred - y)) / np.sum(weights) #y.size
+        pred = sigmoid(X @ w)
+        grad = X.T @ (weights * (pred - y)) / np.sum(weights) #y.size
         grad[1:] += 2 * lambda_ * w[1:]
         w -= gamma * grad
 
     # Final loss (no reg on intercept)
     epsilon = 1e-15
-    pred = sigmoid(tx @ w)
+    pred = sigmoid(X @ w)
     loss = (
         -np.mean(weights * (y * np.log(pred + epsilon) + (1 - y) * np.log(1 - pred + epsilon)))
         + lambda_ * np.sum(w[1:] ** 2)

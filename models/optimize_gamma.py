@@ -1,97 +1,40 @@
 import numpy as np
 from scipy.optimize import linprog
 import matplotlib.pyplot as plt
-from data_processing import get_data
-from data_split import train_val_test_split
-from logistic_regression import LogisticRegression
-from utils import scores
+from data.data_processing import get_data
+from data.data_split import train_val_test_split
+from models.logistic_regression import LogisticRegression
+from utils.utils import scores
 
-def get_roc_points_and_class_distribution(threshold_limit=1000):
-    # Load and preprocess data
-    df = get_data()
-
-    # Split data into train, validation, and test sets
-    train, val, test = train_val_test_split(df)
-
-    # Prepare training data
-    X_train = train.drop(columns=['pass_bar']).to_numpy()
-    y_train = train['pass_bar'].to_numpy()
-
-    X_val = val.drop(columns=['pass_bar']).to_numpy()
-    y_val = val['pass_bar'].to_numpy()
-
-    # Keep gender column (protected attribute A)
-    gender_val = val['gender'].to_numpy()
-
-    # thresholds for ROC curve
-    thresholds = np.linspace(0, 1, threshold_limit)
-
-    # Train logistic regression model
-    model = LogisticRegression()
-    model.fit(X_train, y_train)
-
-    # Prepare lists for ROC for men and women
-    tprs_men, fprs_men = [], []
-    tprs_women, fprs_women = [], []
-
-    # --- Compute ROC curves ----------------------------------------------------
-    for threshold in thresholds:
-
-        # Predict on validation set using threshold
-        y_pred_val = model.predict(X_val, threshold=threshold)
-
-        # ---- MEN ----
-        mask_men = (gender_val == 0)
-        y_true_men = y_val[mask_men]
-        y_pred_men = y_pred_val[mask_men]
-
-        _, _, recall_men, fpr_men, _ = scores(y_pred_men, y_true_men)
-
-        tprs_men.append(recall_men)
-        fprs_men.append(fpr_men)
-
-        # ---- WOMEN ----
-        mask_women = (gender_val == 1)
-        y_true_women = y_val[mask_women]
-        y_pred_women = y_pred_val[mask_women]
-
-        _, _, recall_women, fpr_women, _ = scores(y_pred_women, y_true_women)
-
-        tprs_women.append(recall_women)
-        fprs_women.append(fpr_women)
-
-    # Convert to numpy arrays
-    tprs_men = np.array(tprs_men)
-    fprs_men = np.array(fprs_men)
-    tprs_women = np.array(tprs_women)
-    fprs_women = np.array(fprs_women)
-
-    fpr_groups = [fprs_men, fprs_women]
-    tpr_groups = [tprs_men, tprs_women]
-
-    # --- Compute class distribution (pi0, pi1) ----------------------------------
-    # pi0[a] = P(A=a, Y=0)
-    # pi1[a] = P(A=a, Y=1)
+def class_distribution_by_group(y_val, group_val):
     
     N = len(y_val)
-    if N == 0:
-        raise ValueError("Validation set is empty; cannot compute class distribution.")
+    groups = np.unique(group_val) # unique group values
 
-    pi0 = []
-    pi1 = []
+    distribution_by_group = {}
 
-    for a in [0, 1]:  # men, women
-        mask_a = (gender_val == a)
-        n_a0 = np.sum(mask_a & (y_val == 0))  # count of (A=a, Y=0)
-        n_a1 = np.sum(mask_a & (y_val == 1))  # count of (A=a, Y=1)
+    for g in groups:
+        mask = (group_val == g)
+        n_g = mask.sum()  # size of group g
 
-        pi0.append(n_a0 / N)
-        pi1.append(n_a1 / N)
+        # Joint probabilities P(A=g, Y=y)
+        p_joint_y0 = np.sum(mask & (y_val == 0)) / N
+        p_joint_y1 = np.sum(mask & (y_val == 1)) / N
 
-    pi0 = np.array(pi0, dtype=float)
-    pi1 = np.array(pi1, dtype=float)
+        # Conditional probabilities  P(Y=y | A=g)
+        if n_g > 0:
+            p_cond_y0 = np.sum(mask & (y_val == 0)) / n_g
+            p_cond_y1 = np.sum(mask & (y_val == 1)) / n_g
+        else:
+            p_cond_y0 = p_cond_y1 = np.nan
 
-    return fpr_groups, tpr_groups, pi0, pi1
+        distribution_by_group[g] = {
+            "joint": {"P(A=g,Y=0)": p_joint_y0, "P(A=g,Y=1)": p_joint_y1},
+            "conditional": {"P(Y=0|A=g)": p_cond_y0, "P(Y=1|A=g)": p_cond_y1},
+            "count": int(n_g)
+        }
+
+    return distribution_by_group
 
 
 def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, l10=1, l01=1):
@@ -349,6 +292,7 @@ def solve_gammas_from_roc_points_equal_opportunity(
 
     gammas = np.vstack(gammas)
     return gammas, lambdas
+
 
 fpr_groups, tpr_groups, pi0, pi1= get_roc_points_and_class_distribution()
 print(solve_gammas_from_roc_points_equal_opportunity(fpr_groups, tpr_groups, pi0, pi1))

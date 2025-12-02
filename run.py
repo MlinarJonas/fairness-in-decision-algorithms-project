@@ -1,12 +1,72 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-# from cleaning import clean_data
-# from preprocessing import preprocess_data
-from logistic_regression import reg_logistic_regression_weighted
-from train import train_reg_logistic_regression_weighted
-from CV_models import cross_validate_model, reg_weighted_lr_model
-from optimize_gamma import solve_gamma_from_roc_points, get_roc_points
-from threshold import find_threshold_on_single_roc
+from metrics.threshold import find_threshold_on_single_roc
+from data.data_processing import download_dataset, load_dataset, process_dataset, prepare_data_for_training
+from training.train import train_logistic_regression
+from metrics.roc import compute_roc_points_by_group, compute_roc_points
+from utils.utils import Youden_J_index
+from utils.plots import plot_roc_curve
+
+def load_and_preprocess_data():
+    path = download_dataset()
+    df_raw = load_dataset(path)
+    df_processed = process_dataset(df_raw)
+    splits = prepare_data_for_training(df_processed)
+    return splits, df_processed
+
+def train_model(X_train, y_train):
+    model = train_logistic_regression(X_train, y_train)
+    return model
+    
+def evaluate_model(model, X_val, y_val, gender_val):
+    y_score = model.predict_proba(X_val)
+    thresholds, fpr, tpr = compute_roc_points(y_val, y_score)
+    thresholds_by_group, roc_points_by_group = compute_roc_points_by_group(y_val, y_score, gender_val)
+    youden_j = Youden_J_index(fpr, tpr, thresholds)
+    evaluation_results = {
+        "overall": {
+            "thresholds": thresholds,
+            "fpr": fpr,
+            "tpr": tpr,
+            "Youden_J": youden_j
+        },
+        "by_group": {
+            g : {
+                "group": g,
+                "thresholds": thresholds_by_group[0],
+                "fpr": roc_points_by_group[0]["fpr"],
+                "tpr": roc_points_by_group[0]["tpr"]
+            } for g in roc_points_by_group
+        }
+    } 
+    return evaluation_results
+
+def plot_results(evaluation_results):
+    # Plot overall ROC curve
+    plot_roc_curve(
+        fpr=evaluation_results["overall"]["fpr"],
+        tpr=evaluation_results["overall"]["tpr"],
+    )
+    """
+    # Plot ROC curves by group
+    fpr_list = []
+    tpr_list = []
+    labels_group = []
+    for g in evaluation_results["by_group"]:
+        fpr_list.append(evaluation_results["by_group"][g]["fpr"])
+        tpr_list.append(evaluation_results["by_group"][g]["tpr"])
+        labels_group.append(f"Group {g}")
+
+    plot_roc_curve(
+        fpr_list=fpr_list,
+        tpr_list=tpr_list,
+        labels_group=labels_group
+    )
+    """
+def run_fairness_analysis():
+    # TODO implement fairness analysis
+    pass
+
 
 
 def main():
@@ -108,11 +168,12 @@ def main():
     plt.show()
 
 
-
-    
-
 if __name__ == "__main__":
-    main()
+    splits, df = load_and_preprocess_data()
+    (X_train, y_train), (X_val, y_val, gender_val), test = splits
+    model = train_model(X_train, y_train)
+    evaluation_results = evaluate_model(model, X_val, y_val, gender_val)
+    plot_results(evaluation_results)
 
 
 

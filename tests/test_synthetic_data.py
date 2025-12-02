@@ -1,7 +1,7 @@
 import numpy as np
-from logistic_regression import reg_logistic_regression_weighted
-from utils import sigmoid
-from data_generation import generate_synthetic_student_data  # your existing function
+from models.logistic_regression import reg_logistic_regression_weighted
+from utils.utils import sigmoid
+from data.data_generation import generate_synthetic_student_data  # your existing function
 
 # ---------------------------
 # Parameters
