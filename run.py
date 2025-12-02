@@ -5,7 +5,7 @@ from data.data_processing import download_dataset, load_dataset, process_dataset
 from training.train import train_logistic_regression
 from metrics.roc import compute_roc_points_by_group, compute_roc_points
 from utils.utils import Youden_J_index
-from utils.plots import plot_roc_curve
+from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves
 
 def load_and_preprocess_data():
     path = download_dataset()
@@ -43,7 +43,7 @@ def evaluate_model(model, X_val, y_val, gender_val):
 
 def plot_results(evaluation_results):
     # Plot overall ROC curve
-    plot_roc_curve(
+    plot_single_roc_curve(
         fpr=evaluation_results["overall"]["fpr"],
         tpr=evaluation_results["overall"]["tpr"],
     )

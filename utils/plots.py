@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 
-def plot_single_roc_curve(fpr, tpr, gamma=None):
+def plot_single_roc_curve(fpr, tpr, threshold_point = None):
+
+    if threshold_point is not None:
+        plt.plot(fpr[threshold_point], tpr[threshold_point], 'ro', label='Threshold Point')
     plt.plot(fpr, tpr, label='ROC Curve')
     plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')
     plt.xlabel('False Positive Rate')
