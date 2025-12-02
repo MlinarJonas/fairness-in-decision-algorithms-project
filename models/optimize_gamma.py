@@ -293,6 +293,37 @@ def solve_gammas_from_roc_points_equal_opportunity(
     gammas = np.vstack(gammas)
     return gammas, lambdas
 
+def find_optimal_gamma(roc_points, l01 = 1, l10 = 1):
+    """
+    roc_points: list of tuples (FPR, TPR) describing the ROC curve.
+                They do NOT have to be sorted.
+                
+    loss: function taking a pair (y_true, y_pred) in {(1,0),(0,1)} and returning l(y_true, y_pred)
+          Example:
+              def loss(pair):
+                  if pair == (1,0): return c_fp
+                  if pair == (0,1): return c_fn
+                  
+    Returns:
+        gamma_star: optimal point (gamma_0, gamma_1)
+        value: the minimal loss value
+        index: index of the optimal ROC point in the sorted list
+    """
 
-fpr_groups, tpr_groups, pi0, pi1= get_roc_points_and_class_distribution()
-print(solve_gammas_from_roc_points_equal_opportunity(fpr_groups, tpr_groups, pi0, pi1))
+    # Sort ROC points by FPR (conventional ROC ordering)
+    roc = sorted(roc_points, key=lambda p: p[0])
+
+    best_value = float('inf')
+    best_gamma = None
+    best_idx = None
+
+    for i, (fpr, tpr) in enumerate(roc):
+        fnr = 1 - tpr
+        value = fpr * l10 + fnr * l01
+
+        if value < best_value:
+            best_value = value
+            best_gamma = (fpr, fnr)
+            best_idx = i
+
+    return best_gamma, best_value, best_idx
