@@ -25,8 +25,15 @@ def class_distribution_by_group(y_val, group_val):
         if n_g > 0:
             p_cond_y0 = np.sum(mask & (y_val == 0)) / n_g
             p_cond_y1 = np.sum(mask & (y_val == 1)) / n_g
+
         else:
             p_cond_y0 = p_cond_y1 = np.nan
+
+            #n_a0 = np.sum(mask_a & (y_val == 0))  # count of (A=a, Y=0)
+            #n_a1 = np.sum(mask_a & (y_val == 1))  # count of (A=a, Y=1)
+
+            #pi0 = np.array(pi0, dtype=float)/np.sum(pi0)
+            #pi1 = np.array(pi1, dtype=float)/np.sum(pi1)
 
         distribution_by_group[g] = {
             "joint": {"P(A=g,Y=0)": p_joint_y0, "P(A=g,Y=1)": p_joint_y1},
@@ -327,3 +334,102 @@ def find_optimal_gamma(roc_points, l01 = 1, l10 = 1):
             best_idx = i
 
     return best_gamma, best_value, best_idx
+
+def solve_gammas_from_roc_points_demographic_parity(
+    fpr_groups,
+    tpr_groups,
+    pi0,
+    pi1,
+    l10=1.0,
+    l01=1.0,
+):
+    """
+    Demographic Parity:
+        Selection rate SR_a must be equal across groups.
+
+    We find per-group operating points gamma_a = (FPR_a, TPR_a)
+    such that:
+        SR_0 = SR_1 = ... = SR_K
+    and the total expected loss is minimized.
+
+    Returns: gammas (group-specific FPR/TPR) and λ vectors.
+    """
+    fpr_groups = [np.asarray(f) for f in fpr_groups]
+    tpr_groups = [np.asarray(t) for t in tpr_groups]
+
+    num_groups = len(fpr_groups)
+
+    pi0 = np.asarray(pi0, float)
+    pi1 = np.asarray(pi1, float)
+
+    m_list = [len(f) for f in fpr_groups]
+    total_lambdas = sum(m_list)
+
+    # Decision variables = all λ's concatenated
+    n_vars = total_lambdas
+    c = np.zeros(n_vars)
+
+    # Linear risk: R = sum_a sum_i λ_{a,i} (pi0*FPR*l10 - pi1*TPR*l01)
+    offset = 0
+    for a in range(num_groups):
+        fpr = fpr_groups[a]
+        tpr = tpr_groups[a]
+        m_a = m_list[a]
+
+        c[offset:offset+m_a] = pi0[a]*fpr*l10 - pi1[a]*tpr*l01
+        offset += m_a
+
+    # Equality constraints: DP + convexity
+    A_eq_rows = []
+    b_eq = []
+
+    # Precompute block offsets
+    offsets = np.cumsum([0] + m_list)
+
+    # Define selection-rate term per point
+    s = []
+    for a in range(num_groups):
+        s.append(pi0[a] * fpr_groups[a] + pi1[a] * tpr_groups[a])
+
+    # DP constraint: SR_0 = SR_a for all a
+    for a in range(1, num_groups):
+        row = np.zeros(n_vars)
+        row[offsets[0]:offsets[1]] = s[0]
+        row[offsets[a]:offsets[a+1]] = -s[a]
+        A_eq_rows.append(row)
+        b_eq.append(0.0)
+
+    # Convex weights sum to 1 for each group
+    for a in range(num_groups):
+        row = np.zeros(n_vars)
+        row[offsets[a]:offsets[a+1]] = 1.0
+        A_eq_rows.append(row)
+        b_eq.append(1.0)
+
+    A_eq = np.vstack(A_eq_rows)
+    b_eq = np.array(b_eq)
+
+    bounds = [(0.0, None)] * n_vars
+
+    res = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method="highs")
+
+    if not res.success:
+        raise RuntimeError(f"Demographic Parity LP failed: {res.message}")
+
+    # Extract λ and produce group gammas
+    lam_all = res.x
+    lambdas = []
+    gammas = []
+
+    for a in range(num_groups):
+        lam = lam_all[offsets[a]:offsets[a+1]]
+        lam = np.maximum(lam, 0)
+        lam /= lam.sum()
+
+        FPR_a = np.dot(lam, fpr_groups[a])
+        TPR_a = np.dot(lam, tpr_groups[a])
+
+        lambdas.append(lam)
+        gammas.append([FPR_a, TPR_a])
+
+    return np.array(gammas), lambdas

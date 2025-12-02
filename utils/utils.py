@@ -56,11 +56,11 @@ def build_k_indices(y, k_fold, seed):
     return np.array(k_indices)
 
 
-def Youden_J_index(fpr, tpr, thresholds):
+def Youden_J(fpr, tpr, thresholds):
     J_values = tpr - fpr
     best_idx = np.argmax(J_values)
     best_threshold = thresholds[best_idx]
-    return best_threshold, fpr[best_idx], tpr[best_idx]
+    return best_threshold, (fpr[best_idx], tpr[best_idx])
 
 
 def optimal_threshold_by_accuracy(y_true, y_score):
