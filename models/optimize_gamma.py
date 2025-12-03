@@ -1,47 +1,44 @@
 import numpy as np
 from scipy.optimize import linprog
-import matplotlib.pyplot as plt
-from data.data_processing import get_data
-from data.data_split import train_val_test_split
-from models.logistic_regression import LogisticRegression
-from utils.utils import scores
+
 
 def class_distribution_by_group(y_val, group_val):
-    
     N = len(y_val)
-    groups = np.unique(group_val) # unique group values
+    groups = np.unique(group_val)
+
+    # Pre-compute totals across all groups
+    total_y0 = np.sum(y_val == 0)
+    total_y1 = np.sum(y_val == 1)
 
     distribution_by_group = {}
 
     for g in groups:
         mask = (group_val == g)
-        n_g = mask.sum()  # size of group g
+        n_g = mask.sum()
 
-        # Joint probabilities P(A=g, Y=y)
-        p_joint_y0 = np.sum(mask & (y_val == 0)) / N
-        p_joint_y1 = np.sum(mask & (y_val == 1)) / N
+        # Joint counts
+        n_y0 = np.sum(mask & (y_val == 0))
+        n_y1 = np.sum(mask & (y_val == 1))
 
-        # Conditional probabilities  P(Y=y | A=g)
+        # Normalized joint probabilities
+        pi0 = n_y0 / total_y0 if total_y0 > 0 else 0
+        pi1 = n_y1 / total_y1 if total_y1 > 0 else 0
+
+        # Conditional probabilities P(Y = y | A = g)
         if n_g > 0:
-            p_cond_y0 = np.sum(mask & (y_val == 0)) / n_g
-            p_cond_y1 = np.sum(mask & (y_val == 1)) / n_g
-
+            p_cond_y0 = n_y0 / n_g
+            p_cond_y1 = n_y1 / n_g
         else:
             p_cond_y0 = p_cond_y1 = np.nan
 
-            #n_a0 = np.sum(mask_a & (y_val == 0))  # count of (A=a, Y=0)
-            #n_a1 = np.sum(mask_a & (y_val == 1))  # count of (A=a, Y=1)
-
-            #pi0 = np.array(pi0, dtype=float)/np.sum(pi0)
-            #pi1 = np.array(pi1, dtype=float)/np.sum(pi1)
-
         distribution_by_group[g] = {
-            "joint": {"P(A=g,Y=0)": p_joint_y0, "P(A=g,Y=1)": p_joint_y1},
+            "joint": {"P(A=g,Y=0)": pi0, "P(A=g,Y=1)": pi1},
             "conditional": {"P(Y=0|A=g)": p_cond_y0, "P(Y=1|A=g)": p_cond_y1},
             "count": int(n_g)
         }
 
     return distribution_by_group
+
 
 
 def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, l10=1, l01=1):
@@ -239,7 +236,6 @@ def solve_gammas_from_roc_points_equal_opportunity(
         fpr = fpr_groups[a]
         tpr = tpr_groups[a]
         m_a = m_list[a]
-        print(m_a)
 
         c[offset:offset + m_a] = pi0[a] * fpr * l10 - pi1[a] * tpr * l01
         offset += m_a

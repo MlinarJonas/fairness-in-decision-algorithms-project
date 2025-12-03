@@ -6,6 +6,7 @@ from training.train import train_logistic_regression
 from metrics.roc import compute_roc_points_by_group, compute_roc_points
 from utils.utils import Youden_J
 from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves
+from models.optimize_gamma import solve_gamma_from_roc_points_equal_odds, solve_gammas_from_roc_points_equal_opportunity, class_distribution_by_group, solve_gammas_from_roc_points_demographic_parity
 
 def load_and_preprocess_data():
     path = download_dataset()
@@ -19,43 +20,132 @@ def train_model(X_train, y_train):
     return model
     
 def evaluate_model(model, X_val, y_val, gender_val):
+    
+    
+
+    # Get prediction scores
     y_score = model.predict_proba(X_val)
+    
+    # Get class distributions by group
+    distribution = class_distribution_by_group(y_val, gender_val)
+    groups = sorted(distribution.keys()) # consistent group order
+    pi0 = np.array([distribution[g]["joint"]["P(A=g,Y=0)"] for g in groups], dtype=float)  # pi0[a] ∝ P(A=a, Y=0)
+    pi1 = np.array([distribution[g]["joint"]["P(A=g,Y=1)"] for g in groups], dtype=float)  # pi1[a] ∝ P(A=a, Y=1)
+
+    # Compute ROC points overall
     thresholds, fpr, tpr = compute_roc_points(y_val, y_score)
+
+    # Compute ROC points by group
     thresholds_by_group, roc_points_by_group = compute_roc_points_by_group(y_val, y_score, gender_val)
-    optimal_threshold, optimal_point = Youden_J(fpr, tpr, thresholds)
+
+    # Consistent group order for everything
+    groups = sorted(distribution.keys())
+
+    # Compute optimal points and threshold --- Max Profit
+    optimal_thresholds_max_profit = []
+    optimal_point_max_profit = []
+
+    for g in roc_points_by_group:
+        best_threshold, point = Youden_J(
+            roc_points_by_group[g]["fpr"],
+            roc_points_by_group[g]["tpr"],
+            thresholds_by_group
+        )
+        optimal_thresholds_max_profit.append(best_threshold)
+        optimal_point_max_profit.append(point)
+
+    # Compute optimal point and threshold --- Single Threshold 
+    groups = sorted(roc_points_by_group.keys())
+    fpr_groups = [roc_points_by_group[g]["fpr"] for g in groups]
+    tpr_groups = [roc_points_by_group[g]["tpr"] for g in groups]
+    optimal_threshold_single_threshold, optimal_point_single_threshold = Youden_J(fpr, tpr, thresholds)
+
+    # Compute optimal point and threshold --- Equal Odds
+    gammas_equal_odds, _ = solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups)
+    optimal_point_equal_odds = { g: (float(gammas_equal_odds[0]), float(gammas_equal_odds[1])) for g in groups}
+    
+    # Compute optimal point and threshold --- Equal Opportunity
+    gammas_equal_opportunity,_ = solve_gammas_from_roc_points_equal_opportunity(fpr_groups, tpr_groups, pi0, pi1)
+    optimal_point_equal_opportunity = { g: tuple(gammas_equal_opportunity[i]) for i, g in enumerate(groups)}
+
+    # Compute optimal point and threshold --- Demographic Parity
+    gammas_demographic_parity, _ = solve_gammas_from_roc_points_demographic_parity(fpr_groups, tpr_groups, pi0, pi1)
+    optimal_point_demographic_parity = { g: tuple(gammas_demographic_parity[i]) for i, g in enumerate(groups)}
+
     evaluation_results = {
-        "overall": {
+        "Overall": {
             "thresholds": thresholds,
             "fpr": fpr,
             "tpr": tpr,
-            "optimal threshold": optimal_threshold,
-            "optimal point": optimal_point
         },
-        "by_group": {
+        "By_Group": {
             g : {
                 "group": g,
                 "thresholds": thresholds_by_group,
                 "fpr": roc_points_by_group[g]["fpr"],
                 "tpr": roc_points_by_group[g]["tpr"],
-                # "optimal point": TODO start here for equal odds
             } for g in roc_points_by_group
+        },
+        "Max_Profit": {
+            "optimal_point": optimal_point_max_profit,
+            "optimal_threshold": optimal_thresholds_max_profit
+        },
+        "Single_Threshold": {
+            "optimal_point": optimal_point_single_threshold,
+            "optimal_threshold": optimal_threshold_single_threshold
+        },
+        "Equal_Odds": {
+            "optimal_point": optimal_point_equal_odds
+        },
+        "Equal_Opportunity": {
+            "optimal_point": optimal_point_equal_opportunity
+        },
+        "Demographic_Parity": {
+            "optimal_point": optimal_point_demographic_parity
         }
-    } 
+    }
     return evaluation_results
 
 def plot_results(evaluation_results):
-    # Plot overall ROC curve
+    # Plot single threshold ROC curve
     plot_single_roc_curve(
-        fpr=evaluation_results["overall"]["fpr"],
-        tpr=evaluation_results["overall"]["tpr"],
-        optimal_point=evaluation_results["overall"]["optimal point"]
+        fpr=evaluation_results["Overall"]["fpr"],
+        tpr=evaluation_results["Overall"]["tpr"],
+        optimal_point=evaluation_results["Single_Threshold"]["optimal_point"],
+        label = "Roc Curve single threshold"
     )
     
+    # Plot max profit ROC curve
     plot_grouped_roc_curves(
-        roc_points_by_group=evaluation_results["by_group"],
-        labels_group={0:"Male", 1:"Female"}
+        roc_points_by_group=evaluation_results["By_Group"],
+        labels_group={0:"Male", 1:"Female"},
+        optimal_points_by_group = {g: [evaluation_results["Max_Profit"][g]["optimal point"]] for g in evaluation_results["Max_Profit"]},
+        label = "Roc Curve max profit"
+    )
+    # Plot equal odds ROC curve
+    plot_grouped_roc_curves(
+        roc_points_by_group=evaluation_results["Max_Profit"],
+        labels_group={0:"Male", 1:"Female"},
+        optimal_points_by_group= evaluation_results["Equal_Odds"]["optimal_gamma"],
+        label = "Roc Curve equal odds"
+    )
+
+    # Plot equal opportunity ROC curve
+    plot_grouped_roc_curves(
+        roc_points_by_group=evaluation_results["Max_Profit"],
+        labels_group={0:"Male", 1:"Female"},
+        optimal_points_by_group= evaluation_results["Equal_Opportunity"]["optimal_gamma"],
+        label = "Roc Curve equal opportunity"
     )
     
+    # Plot demographic parity ROC curve
+    plot_grouped_roc_curves(
+        roc_points_by_group=evaluation_results["Max_profit"],
+        labels_group={0:"Male", 1:"Female"},
+        optimal_points_by_group= evaluation_results["Demographic_Parity"]["optimal gamma"],
+        label = "Roc Curve demographic parity"
+    )
+
 def run_fairness_analysis():
     # TODO implement fairness analysis
     pass
@@ -67,106 +157,3 @@ if __name__ == "__main__":
     model = train_model(X_train, y_train)
     evaluation_results = evaluate_model(model, X_val, y_val, gender_val)
     plot_results(evaluation_results)
-
-
-def main():
-    # Load data
-    # x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data")
-
-    # Get column names
-    # column_names = np.genfromtxt("data/x_train.csv", delimiter=",", max_rows=1, dtype=str)[1:].tolist()
-
-    # Clean data
-    #x_train_clean, x_test_clean, y_train_clean, column_names = clean_data(
-    #    x_train, x_test, y_train, column_names,
-    #    nan_feature_thresh=0.3, corr_thresh=0.05, high_corr_thresh=0.9, nan_row_thresh=0.05
-    #)
-
-    # Preprocess cleaned data
-    #x_train_final, x_test_final, y_train_bin = preprocess_data(
-    #    x_train_clean, x_test_clean, y_train_clean, column_names
-    #)
-
-    # Train best model (weighted L2-regularized logistic regression)
-    
-    w, loss = train_reg_logistic_regression_weighted(
-        x_train_final, y_train_bin, lambda_=1e-6, gamma=0.5, max_iters=2000
-    )
-    print("Training finished")
-    
-    # Generate submission
-    #y_test_competition = make_submission_LR(
-    #    w, x_test_final, test_ids, filename="submission_final.csv"
-    #)
-    #print("Submission saved to submission_final.csv")
-
-    thresholds = np.linspace(0, 1, 1000)
-    T_0 = find_threshold_on_single_roc(fpr_groups[0], tpr_groups[0], thresholds, gamma, tol=1e-12)
-    print("T_0:", T_0)
-    T_1 = find_threshold_on_single_roc(fpr_groups[1], tpr_groups[1], thresholds, gamma, tol=1e-12)
-    print("T_1:", T_1)
-
-    # Convert to numpy arrays
-    tprs_men = tpr_groups[0]
-    fprs_men = fpr_groups[0]
-    tprs_women = tpr_groups[1]
-    fprs_women = fpr_groups[1]
-    
-    
-    # Plot ROC curves
-    plt.figure()
-    plt.plot(fprs_men, tprs_men, label='Men ROC')
-    plt.plot(fprs_women, tprs_women, label='Women ROC')
-    plt.scatter(gamma[0], gamma[1], marker="x", color="red", label="Gamma")
-    plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve by Gender')
-    plt.legend()
-    plt.show()
-
-
-
-    # Extract ROC points for plotting
-    (T0, alpha0, gamma0, idx0) = T_0
-    (T1, alpha1, gamma1, idx1) = T_1
-
-    roc0_points = [(fprs_men[i], tprs_men[i]) for i in idx0]
-    roc1_points = [(fprs_women[i], tprs_women[i]) for i in idx1]
-
-    plt.figure()
-
-    # ROC curves
-    plt.plot(fprs_men, tprs_men, label='Men ROC')
-    plt.plot(fprs_women, tprs_women, label='Women ROC')
-
-    # Gamma
-    plt.scatter(gamma[0], gamma[1], c="red", s=120, marker="x", label="Gamma")
-
-    # ----- Group 0 convex hull points -----
-    for (x, y) in roc0_points:
-        plt.scatter(x, y, color="blue")
-    # connect hull (segment or triangle)
-    xs0 = [p[0] for p in roc0_points] + [roc0_points[0][0]]
-    ys0 = [p[1] for p in roc0_points] + [roc0_points[0][1]]
-    plt.plot(xs0, ys0, color="blue", linestyle="--", label="Group 0 combination")
-
-    # ----- Group 1 convex hull points -----
-    for (x, y) in roc1_points:
-        plt.scatter(x, y, color="orange")
-    xs1 = [p[0] for p in roc1_points] + [roc1_points[0][0]]
-    ys1 = [p[1] for p in roc1_points] + [roc1_points[0][1]]
-    plt.plot(xs1, ys1, color="orange", linestyle="--", label="Group 1 combination")
-
-    # Diagonal
-    plt.plot([0, 1], [0, 1], "k--", label="Random Guess")
-
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve by Gender with Gamma and Convex Combination Points")
-    plt.legend()
-    plt.show()
-
-
-
-
