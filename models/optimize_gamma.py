@@ -1,8 +1,10 @@
 import numpy as np
 from scipy.optimize import linprog
 
+l10 = 1.0 # Loss for false positive
+l01 = 1.0 # Loss for false negative
 
-def class_distribution_by_group(y_val, group_val):
+def class_distribution_by_group(y_val, group_val, thresholds):
     N = len(y_val)
     groups = np.unique(group_val)
 
@@ -41,7 +43,7 @@ def class_distribution_by_group(y_val, group_val):
 
 
 
-def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, l10=1, l01=1):
+def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, thresholds):
     """
     Solve:
         min_{γ in ∩_a D_a} γ0 * l(1,0) + (1 - γ1) * l(0,1)
@@ -161,18 +163,11 @@ def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, l10=1, l01=1)
             lam /= s
         lambdas.append(lam)
         lambda_start += m_a
+    results = lambda_to_thresholds([gamma], lambdas, thresholds)
+    return results
 
-    return gamma, lambdas
 
-
-def solve_gammas_from_roc_points_equal_opportunity(
-    fpr_groups,
-    tpr_groups,
-    pi0,
-    pi1,
-    l10=1.0,
-    l01=1.0,
-):
+def solve_gammas_from_roc_points_equal_opportunity(fpr_groups, tpr_groups, pi0, pi1, thresholds):
     """
     Equal Opportunity:
         Find per-group operating points γ_a = (FPR_a, TPR_a) such that
@@ -294,9 +289,10 @@ def solve_gammas_from_roc_points_equal_opportunity(
         gammas.append(np.array([fpr_a, tpr_a]))
 
     gammas = np.vstack(gammas)
-    return gammas, lambdas
+    results = lambda_to_thresholds(gammas, lambdas, thresholds)
+    return results
 
-def find_optimal_gamma(roc_points, l01 = 1, l10 = 1):
+def find_optimal_gamma(fpr, tpr, thresholds):
     """
     roc_points: list of tuples (FPR, TPR) describing the ROC curve.
                 They do NOT have to be sorted.
@@ -314,13 +310,15 @@ def find_optimal_gamma(roc_points, l01 = 1, l10 = 1):
     """
 
     # Sort ROC points by FPR (conventional ROC ordering)
-    roc = sorted(roc_points, key=lambda p: p[0])
+    
+    f = np.array(fpr)
+    t = np.array(tpr)
 
     best_value = float('inf')
     best_gamma = None
     best_idx = None
 
-    for i, (fpr, tpr) in enumerate(roc):
+    for i, (f, t) in zip((f,t)):
         fnr = 1 - tpr
         value = fpr * l10 + fnr * l01
 
@@ -329,16 +327,15 @@ def find_optimal_gamma(roc_points, l01 = 1, l10 = 1):
             best_gamma = (fpr, fnr)
             best_idx = i
 
-    return best_gamma, best_value, best_idx
+    result = {
+                "indices": [best_idx],
+                "weights": None,
+                "thresholds": [thresholds[best_idx]],
+                "optimal_point": [best_gamma]
+        }
+    return result
 
-def solve_gammas_from_roc_points_demographic_parity(
-    fpr_groups,
-    tpr_groups,
-    pi0,
-    pi1,
-    l10=1.0,
-    l01=1.0,
-):
+def solve_gammas_from_roc_points_demographic_parity(fpr_groups, tpr_groups, pi0, pi1, thresholds):
     """
     Demographic Parity:
         Selection rate SR_a must be equal across groups.
@@ -428,4 +425,26 @@ def solve_gammas_from_roc_points_demographic_parity(
         lambdas.append(lam)
         gammas.append([FPR_a, TPR_a])
 
-    return np.array(gammas), lambdas
+    results = lambda_to_thresholds(gammas, lambdas, thresholds)
+    return results
+
+
+def lambda_to_thresholds(gammas, lambdas, thresholds_by_group):
+    
+    result = {}
+    
+    gammas_list = [ (float(g[0]), float(g[1])) for g in gammas ]
+
+    for g, lam in enumerate(lambdas):
+        # Check how many non-zero entries
+        idxs = np.where(lam > 1e-9)[0]
+
+            
+        result = {
+                "indices": idxs,
+                "weights": lam[idxs],
+                "optimal_threshold": [[thresholds_by_group[i]] for i in idxs],
+                "optimal_point": gammas_list
+        }
+
+    return result

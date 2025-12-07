@@ -60,7 +60,25 @@ def Youden_J(fpr, tpr, thresholds):
     J_values = tpr - fpr
     best_idx = np.argmax(J_values)
     best_threshold = thresholds[best_idx]
-    return best_threshold, (fpr[best_idx], tpr[best_idx])
+    return [best_threshold, (fpr[best_idx], tpr[best_idx])]
+
+def Youden_J_groups(fpr_groups, tpr_groups, thresholds):
+    optimal_thresholds = []
+    optimal_points = []
+    num_groups = len(fpr_groups)
+    thresholds = thresholds  # assuming same thresholds for all groups
+    
+    for g in range(num_groups):
+        fpr = fpr_groups[g]
+        tpr = tpr_groups[g]
+        [best_threshold, (p1, p2)] = Youden_J(fpr, tpr, thresholds)
+        optimal_thresholds.append(best_threshold)
+        optimal_points.append((p1,p2))
+    
+    return {
+        "optimal_threshold": optimal_thresholds,
+        "optimal_point": optimal_points
+    }
 
 
 def optimal_threshold_by_accuracy(y_true, y_score):
