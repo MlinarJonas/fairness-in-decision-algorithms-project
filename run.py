@@ -5,7 +5,7 @@ from data.data_processing import download_dataset, load_dataset, process_dataset
 from training.train import train_logistic_regression
 from metrics.roc import compute_roc_points_by_group, compute_roc_points
 from utils.utils import Youden_J, Youden_J_groups
-from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves, plot_group_thresholds, plot_group_thresholds_test
+from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves, plot_group_thresholds
 from models.optimize_gamma import solve_gamma_from_roc_points_equal_odds, solve_gammas_from_roc_points_equal_opportunity, class_distribution_by_group, solve_gammas_from_roc_points_demographic_parity
 from metrics.threshold import find_threshold_on_single_roc
 
@@ -44,7 +44,7 @@ def evaluate_model(model, X_val, y_val, gender_val):
     # Compute optimal point and threshold --- Max Profit
     max_profit = Youden_J_groups(fpr_groups, tpr_groups, thresholds_by_group)
     optimal_points_max_profit = max_profit["optimal_point"]
-    optimal_thresholds_max_profit =[max_profit["optimal_threshold"]] 
+    optimal_thresholds_max_profit = max_profit["optimal_threshold"]
 
     # Compute optimal point and threshold -- - Single Threshold
     optimal_threshold_single_threshold = [Youden_J(fpr, tpr, thresholds)[0]] * amount_groups
@@ -150,9 +150,10 @@ if __name__ == "__main__":
     model = train_model(X_train, y_train)
     evaluation_results = evaluate_model(model, X_val, y_val, gender_val)
     print(evaluation_results["Max_Profit"]["optimal_threshold"])
+    print(evaluation_results["Overall"]["optimal_threshold"])
     print(evaluation_results["Equal_Opportunity"]["optimal_threshold"])
     print(evaluation_results["Equal_Odds"]["optimal_threshold"])
     print(evaluation_results["Demographic_Parity"]["optimal_threshold"])
-    print(evaluation_results["Overall"]["optimal_threshold"])
-    plot_results(evaluation_results)
+    #plot_results(evaluation_results)
+    plot_group_thresholds(evaluation_results)
     #plot_group_thresholds_test(evaluation_results)

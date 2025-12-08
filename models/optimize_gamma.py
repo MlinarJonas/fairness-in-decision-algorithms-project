@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import linprog
+from metrics.threshold import find_threshold_on_single_roc
 
 l10 = 1.0 # Loss for false positive
 l01 = 1.0 # Loss for false negative
@@ -163,7 +164,7 @@ def solve_gamma_from_roc_points_equal_odds(fpr_groups, tpr_groups, thresholds):
             lam /= s
         lambdas.append(lam)
         lambda_start += m_a
-    results = lambda_to_thresholds([gamma], lambdas, thresholds)
+    results = lambda_to_thresholds(fpr_groups,tpr_groups, num_groups, gamma, lambdas, thresholds)
     return results
 
 
@@ -289,7 +290,7 @@ def solve_gammas_from_roc_points_equal_opportunity(fpr_groups, tpr_groups, pi0, 
         gammas.append(np.array([fpr_a, tpr_a]))
 
     gammas = np.vstack(gammas)
-    results = lambda_to_thresholds(gammas, lambdas, thresholds)
+    results = lambda_to_thresholds(fpr_groups,tpr_groups, num_groups, gammas, lambdas, thresholds)
     return results
 
 def find_optimal_gamma(fpr, tpr, thresholds):
@@ -425,26 +426,37 @@ def solve_gammas_from_roc_points_demographic_parity(fpr_groups, tpr_groups, pi0,
         lambdas.append(lam)
         gammas.append([FPR_a, TPR_a])
 
-    results = lambda_to_thresholds(gammas, lambdas, thresholds)
+    results = lambda_to_thresholds(fpr_groups,tpr_groups, num_groups, gammas, lambdas, thresholds)
     return results
 
 
-def lambda_to_thresholds(gammas, lambdas, thresholds_by_group):
+def lambda_to_thresholds(fpr_groups, tpr_groups, num_groups, gammas, lambdas, thresholds_by_group):
     
     result = {}
+
+    optimal_thresholds = []
+
+    if np.ndim(gammas) == 1:
+        for i in range(num_groups):
+            fpr = fpr_groups[i]
+            tpr = tpr_groups[i]
+            gamma = gammas  
+            lambdas = lambdas[i]
+            optimal_threshold,_,_,_ = find_threshold_on_single_roc(fpr, tpr, thresholds_by_group, gamma)
+            optimal_thresholds.append(optimal_threshold)
+
+    else:
+        for i in range(num_groups):
+            fpr = fpr_groups[i]
+            tpr = tpr_groups[i]
+            gamma = gammas[i]
+            lambdas = lambdas[i]
+            optimal_threshold,_,_,_ = find_threshold_on_single_roc(fpr, tpr, thresholds_by_group, gamma)
+            optimal_thresholds.append(optimal_threshold) 
     
-    gammas_list = [ (float(g[0]), float(g[1])) for g in gammas ]
-
-    for g, lam in enumerate(lambdas):
-        # Check how many non-zero entries
-        idxs = np.where(lam > 1e-9)[0]
-
-            
-        result = {
-                "indices": idxs,
-                "weights": lam[idxs],
-                "optimal_threshold": [[thresholds_by_group[i]] for i in idxs],
-                "optimal_point": gammas_list
+    result = {
+            "optimal_threshold": optimal_thresholds,
+            "optimal_point": gammas
         }
 
     return result

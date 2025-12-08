@@ -60,7 +60,7 @@ def Youden_J(fpr, tpr, thresholds):
     J_values = tpr - fpr
     best_idx = np.argmax(J_values)
     best_threshold = thresholds[best_idx]
-    return [best_threshold, (fpr[best_idx], tpr[best_idx])]
+    return [np.array([best_threshold]), (fpr[best_idx], tpr[best_idx])]
 
 def Youden_J_groups(fpr_groups, tpr_groups, thresholds):
     optimal_thresholds = []

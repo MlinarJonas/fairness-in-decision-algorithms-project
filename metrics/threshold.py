@@ -72,7 +72,7 @@ def barycentric_triangle(g, p1, p2, p3, tol=1e-12):
 
 
 
-def find_threshold_on_single_roc(fprs, tprs, thresholds, gamma, tol=1e-12, max_combinations=50000):
+def find_threshold_on_single_roc(fprs, tprs, thresholds, gamma, tol=1e-12, max_combinations=100000):
     """
     Finds thresholds corresponding to a convex combination of 1, 2, or 3 ROC points
     that exactly equals gamma (within tol), and returns the combination that
