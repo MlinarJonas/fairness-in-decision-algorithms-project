@@ -42,7 +42,7 @@ def plot_grouped_roc_curves(roc_points, optimal_points, labels_group, fairness_l
 
 import matplotlib.pyplot as plt
 
-def plot_group_thresholds(evaluation_results, group_label_map=None, title=None):
+def plot_group_thresholds(evaluation_results, group_label = None):
 
     group_label = ["Men", "Women"]
     max_profit_res = evaluation_results["Max_Profit"]["optimal_threshold"]
@@ -60,8 +60,7 @@ def plot_group_thresholds(evaluation_results, group_label_map=None, title=None):
         "Demographic Parity" : 0,
     }
 
-    # Nice default labels / style per group (edit as you like)
-    default_markers = ['D', 'o', 's', 'p', '^', 'v']   # diamond, circle, square, pentagon, ...
+    default_markers = ['D', 'o', 's', 'p', '^', 'v'] 
     default_colors  = ['b', 'g', 'r', 'c', 'm', 'y']
 
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -164,7 +163,7 @@ def plot_group_thresholds(evaluation_results, group_label_map=None, title=None):
     ax.set_yticklabels(list(rows.keys()))
     ax.set_xlim(0, 1)
     ax.set_xlabel('Threshold Value')
-    ax.set_title(title if title is not None else 'Group Thresholds by Fairness Criterion')
+    ax.set_title('Group Thresholds by Fairness Criterion')
     ax.legend()
     plt.show()
 
