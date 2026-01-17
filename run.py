@@ -142,18 +142,17 @@ def plot_results(evaluation_results):
 def run_fairness_analysis():
     # TODO implement fairness analysis
     pass
-
+s
 
 if __name__ == "__main__":
     splits, df = load_and_preprocess_data()
     (X_train, y_train), (X_val, y_val, gender_val), test = splits
     model = train_model(X_train, y_train)
     evaluation_results = evaluate_model(model, X_val, y_val, gender_val)
-    #print(evaluation_results["Max_Profit"]["optimal_threshold"])
-    #print(evaluation_results["Overall"]["optimal_threshold"])
+    print(evaluation_results["Max_Profit"]["optimal_threshold"])
+    print(evaluation_results["Overall"]["optimal_threshold"])
     print(evaluation_results["Equal_Opportunity"]["optimal_threshold"])
-    #print(evaluation_results["Equal_Odds"]["optimal_threshold"])
+    print(evaluation_results["Equal_Odds"]["optimal_threshold"])
     print(evaluation_results["Demographic_Parity"]["optimal_threshold"])
     plot_results(evaluation_results)
-    #plot_group_thresholds(evaluation_results)
-    #plot_group_thresholds_test(evaluation_results)
+    plot_group_thresholds(evaluation_results)
