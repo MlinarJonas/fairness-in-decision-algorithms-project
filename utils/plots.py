@@ -40,7 +40,47 @@ def plot_grouped_roc_curves(roc_points, optimal_points, labels_group, fairness_l
     plt.show()
 
 
-import matplotlib.pyplot as plt
+
+def plot_all_optimal_points_roc(Thresholds_list, roc_points):
+    
+    # Different symbols and colors for optimal points
+    markers = ['s', '+', '^', 'x']
+    colors = ['r', 'b', 'y', 'k']
+
+    # Labels for Roc curves
+    labels_roc_curve = ["Men", "Women"]
+    criteria_names = ["Max Profit", "Equal Opportunity", "Equal Odds", "Demographic Parity"]
+
+
+    # Plot ROC curves
+    for g in roc_points:
+        roc_data = roc_points[g]
+        fpr = roc_data['fpr']
+        tpr = roc_data['tpr']
+        plt.plot(fpr, tpr, label=f'Group {labels_roc_curve[g]} ROC')
+
+    # Plot optimal points for fairness criteria
+    j = 0
+    for f in Thresholds_list:
+        if np.ndim(f) == 1:
+            (optimal_x, optimal_y) = f
+            plt.plot(optimal_x, optimal_y, marker=markers[j], color = colors[j], label=criteria_names[j], linestyle='None')
+        else:
+            for p in f:
+                print(p)
+                (optimal_x, optimal_y) = p
+                plt.plot(optimal_x, optimal_y, marker=markers[j], color = colors[j], label=criteria_names[j], linestyle='None')
+        j += 1
+
+    plt.plot([0, 1], [0, 1], 'k--', label='Random Guess')
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC Curves with optimal points for fairness criteria')
+    plt.show()
 
 def plot_group_thresholds(evaluation_results, group_label = None):
 

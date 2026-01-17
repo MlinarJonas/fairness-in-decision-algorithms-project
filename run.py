@@ -5,7 +5,7 @@ from data.data_processing import download_dataset, load_dataset, process_dataset
 from training.train import train_logistic_regression
 from metrics.roc import compute_roc_points_by_group, compute_roc_points
 from utils.utils import Youden_J, Youden_J_groups
-from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves, plot_group_thresholds
+from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves, plot_group_thresholds, plot_all_optimal_points_roc
 from models.optimize_gamma import solve_gamma_from_roc_points_equal_odds, solve_gammas_from_roc_points_equal_opportunity, class_distribution_by_group, solve_gammas_from_roc_points_demographic_parity
 from metrics.threshold import find_threshold_on_single_roc
 
@@ -97,7 +97,12 @@ def evaluate_model(model, X_val, y_val, gender_val):
 
 def plot_results(evaluation_results):
     
+    threshold_points = [evaluation_results["Max_Profit"]["optimal_point"],
+                        evaluation_results["Equal_Opportunity"]["optimal_point"],
+                        evaluation_results["Equal_Odds"]["optimal_point"],
+                        evaluation_results["Demographic_Parity"]["optimal_point"]]
     
+
     # Plot max profit ROC curve
     plot_grouped_roc_curves(
         roc_points = evaluation_results["By_Group"],
@@ -137,12 +142,16 @@ def plot_results(evaluation_results):
         optimal_points = evaluation_results["Demographic_Parity"]["optimal_point"],
         fairness_label = "Demographic Parity"
     )
+
+    plot_all_optimal_points_roc(threshold_points, evaluation_results["By_Group"])
+
+    
     
 
 def run_fairness_analysis():
     # TODO implement fairness analysis
     pass
-s
+
 
 if __name__ == "__main__":
     splits, df = load_and_preprocess_data()
