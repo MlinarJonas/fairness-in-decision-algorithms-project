@@ -4,7 +4,7 @@ from metrics.threshold import find_threshold_on_single_roc
 from data.data_processing import download_dataset, load_dataset, process_dataset, prepare_data_for_training
 from training.train import train_logistic_regression
 from metrics.roc import compute_roc_points_by_group, compute_roc_points
-from utils.utils import Youden_J, Youden_J_groups
+from utils.utils import Youden_J, Youden_J_groups, scores
 from utils.plots import plot_single_roc_curve, plot_grouped_roc_curves, plot_group_thresholds, plot_all_optimal_points_roc
 from models.optimize_gamma import solve_gamma_from_roc_points_equal_odds, solve_gammas_from_roc_points_equal_opportunity, class_distribution_by_group, solve_gammas_from_roc_points_demographic_parity
 from metrics.threshold import find_threshold_on_single_roc
@@ -93,6 +93,37 @@ def evaluate_model(model, X_val, y_val, gender_val):
             "optimal_point": results_demographic_parity["optimal_point"]
         }
     }
+    
+    # print optimal thresholds
+    print(evaluation_results["Overall"]["optimal_threshold"])
+    print(evaluation_results["Max_Profit"]["optimal_threshold"])
+    print(evaluation_results["Equal_Odds"]["optimal_threshold"])
+    print(evaluation_results["Equal_Opportunity"]["optimal_threshold"])
+    print(evaluation_results["Demographic_Parity"]["optimal_threshold"])
+
+
+    y_pred_overall = model.predict(X_val, threshold = evaluation_results["Overall"]["optimal_threshold"][0])
+    scores_overall = scores(y_val, y_pred_overall)
+
+    y_pred_max_profit = model.predict(X_val, threshold = evaluation_results["Max_Profit"]["optimal_threshold"][0])
+    scores_max_profit = scores(y_val, y_pred_max_profit)
+
+    y_pred_equal_odds = model.predict(X_val, threshold = evaluation_results["Equal_Odds"]["optimal_threshold"][0])
+    scores_equal_odds = scores(y_val, y_pred_equal_odds)
+
+    y_pred_equal_opportunity = model.predict(X_val, threshold = evaluation_results["Equal_Opportunity"]["optimal_threshold"][0])
+    scores_equal_opportunity = scores(y_val, y_pred_equal_opportunity)
+
+    y_pred_demographic_parity = model.predict(X_val, threshold = evaluation_results["Demographic_Parity"]["optimal_threshold"][0])
+    scores_demographic_parity = scores(y_val, y_pred_demographic_parity)
+
+    print("Overall Scores (Accuracy, Precision, Recall, FPR, F1): ", scores_overall)
+    print("Max Profit Scores (Accuracy, Precision, Recall, FPR, F1): ", scores_max_profit)
+    print("Equal Odds Scores (Accuracy, Precision, Recall, FPR, F1): ", scores_equal_odds)
+    print("Equal Opportunity Scores (Accuracy, Precision, Recall, FPR, F1): ", scores_equal_opportunity)
+    print("Demographic Parity Scores (Accuracy, Precision, Recall, FPR, F1): ", scores_demographic_parity)
+
+    
     return evaluation_results
 
 def plot_results(evaluation_results):

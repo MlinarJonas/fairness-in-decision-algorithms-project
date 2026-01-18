@@ -201,7 +201,7 @@ def plot_group_thresholds(evaluation_results, group_label = None):
     # set y-ticks and labels
     ax.set_yticks(list(rows.values()))
     ax.set_yticklabels(list(rows.keys()))
-    ax.set_xlim(0, 1)
+    ax.set_xlim(0.25, 0.55)
     ax.set_xlabel('Threshold Value')
     ax.set_title('Group Thresholds by Fairness Criterion')
     ax.legend()
